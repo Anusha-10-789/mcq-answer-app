@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from google.genai import errors as genai_errors
 
 import gemini_service
-from gemini_service import GeminiNotConfigured
+from gemini_service import GeminiNotConfigured, GeminiResponseError
 from models import AnswerRequest, AnswerResponse, DownloadRequest
 from security import rate_limit, verify_app_password
 from text_cleanup import clean_math_artifacts, remove_duplicate_option_labels
@@ -48,6 +48,11 @@ async def answer(request: AnswerRequest) -> AnswerResponse:
         results = await gemini_service.get_mcq_answers(questions, request.topic)
     except GeminiNotConfigured as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except GeminiResponseError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Gemini returned an unreadable response after retrying. Please try again. ({exc})",
+        )
     except genai_errors.ClientError as exc:
         if exc.code == 429:
             raise HTTPException(

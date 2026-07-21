@@ -8,8 +8,11 @@ from docx.shared import RGBColor
 from models import MCQResult
 
 BLACK = RGBColor(0, 0, 0)
-OPTION_LINE_RE = re.compile(r"^([A-Za-z])[.):]\s*(.*)$")
-BARE_LETTER_LINE_RE = re.compile(r"^[A-Za-z]$")
+# Uppercase-only and on purpose: physics/math content like "e.g." or a lone
+# lowercase "a" (for acceleration) must never be mistaken for an option
+# marker. Real option markers in this app are always A-D.
+OPTION_LINE_RE = re.compile(r"^([A-D])[.):]\s*(.*)$")
+BARE_LETTER_LINE_RE = re.compile(r"^[A-D]$")
 
 
 def _add_option_run(paragraph, letter: str, content: str) -> None:

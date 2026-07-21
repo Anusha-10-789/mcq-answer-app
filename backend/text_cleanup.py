@@ -1,6 +1,9 @@
 import re
 
-_LABEL_LINE_RE = re.compile(r"^([A-Za-z])[.)]?$")
+# Uppercase-only and on purpose: physics/math content is often a single
+# lowercase letter (e.g. "a" for acceleration, "m" for mass), which must
+# never be mistaken for an option marker. Real option markers are A-D.
+_LABEL_LINE_RE = re.compile(r"^([A-D])[.)]?$")
 
 # Characters Word/Office equation editors emit as grouping delimiters when an
 # equation (e.g. "10 (m/s)^2") is copy-pasted as plain text ("Unicode linear

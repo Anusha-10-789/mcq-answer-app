@@ -1,6 +1,13 @@
-const QUESTION_START = /(?:^|\n)\s*(?:question\s*\d*[:.)]|q\.?\d+[:.)]|\d+[:.)])/gi;
+// The digit-based alternatives require a non-digit after the delimiter so a
+// decimal number like "0.75" or "10.5" sitting alone on its own line (a very
+// common shape for numeric MCQ options) is never mistaken for a "1." style
+// question marker.
+const QUESTION_START = /(?:^|\n)\s*(?:question\s*\d*[:.)]|q\.?\d+[:.)](?!\d)|\d+[:.)](?!\d))/gi;
 const Q_NUMBER_PREFIX = /^q\.?\d+[:.)]\s*/i;
-const BARE_OPTION_LETTER_LINE = /^[A-D]$/i;
+// Uppercase-only and on purpose: physics/math content is often a single
+// lowercase letter (e.g. "a" for acceleration), which must never be mistaken
+// for an option marker. Real option markers in this app are always A-D.
+const BARE_OPTION_LETTER_LINE = /^[A-D]$/;
 
 function splitByMarkers(text: string): string[] {
   const matches = [...text.matchAll(QUESTION_START)];

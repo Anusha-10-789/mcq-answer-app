@@ -9,14 +9,19 @@ _LABEL_LINE_RE = re.compile(r"^([A-Za-z])[.)]?$")
 _MATH_BRACKET_CHARS_RE = re.compile(r"\[\[|\]\]|[〖〗⟦⟧]")
 _MULTI_SPACE_RE = re.compile(r"[ \t]{2,}")
 _SPACE_BEFORE_CARET_RE = re.compile(r"\s+(\^)")
+# Only matches a quote pair glued directly to a preceding number, e.g. the
+# Word-equation-paste artifact '10" N/kg "' or '0.5" N"' - never a normal
+# prose quote like she said "I will go", since that's not preceded by a digit.
+_QUOTED_UNIT_RE = re.compile(r'(\d[\d.]*) ?"(\s*[^"\n]*?)"')
 
 
 def clean_math_artifacts(text: str) -> str:
     """Strip Word-equation copy-paste artifacts so units/values print as typed,
     e.g. '10" N/kg "' -> '10 N/kg', 'g=10〖" m/s "〗^2' -> 'g=10 m/s^2'.
+    Leaves ordinary quotation marks elsewhere in the question untouched.
     """
     cleaned = _MATH_BRACKET_CHARS_RE.sub("", text)
-    cleaned = cleaned.replace('"', "")
+    cleaned = _QUOTED_UNIT_RE.sub(r"\1\2", cleaned)
     cleaned = _SPACE_BEFORE_CARET_RE.sub(r"\1", cleaned)
     cleaned = _MULTI_SPACE_RE.sub(" ", cleaned)
     return "\n".join(line.rstrip() for line in cleaned.split("\n"))

@@ -23,26 +23,58 @@ function splitByMarkers(text: string): string[] {
   return blocks;
 }
 
-// For input with no explicit question markers at all: each question repeats every
-// option letter A-D once before its content and once again right after it (e.g. a
-// line "D" opens option D, then its text, then a lone "D" line closes it). The second
-// "D" line closes out the whole question — everything after it starts the next one.
-function splitByRepeatedOptionLetters(text: string): string[] {
+// For input with no explicit question markers at all: each question has its
+// options marked by bare A/B/C/D letter lines, in that order. Some pastes
+// repeat the letter after the option's content (open + close, e.g.
+// "A\ntext\nA"), others only mark it once ("A\ntext"). Whichever shape it is,
+// option D is always followed by exactly one content line (every real
+// example seen has single-line option content). So as soon as D's marker is
+// seen, the cut point for "everything after this belongs to the NEXT
+// question" is known immediately: right after that one content line (pushed
+// one further if a closing "D" duplicate follows it). Crucially, this cut
+// point is recorded THEN, not when the next "A" eventually turns up -
+// otherwise the next question's stem (which appears BEFORE its own "A"
+// marker) ends up trapped at the tail of the previous block instead of at
+// the head of its own.
+const OPTION_SEQUENCE = ["A", "B", "C", "D"];
+
+function splitByOptionSequence(text: string): string[] {
   const lines = text.split("\n");
   const blocks: string[] = [];
   let start = 0;
-  let dCount = 0;
+  let expectedIndex = 0;
+  let lastLabel: string | null = null;
+  let sawFirstA = false;
+  let pendingCut: number | null = null;
 
   for (let i = 0; i < lines.length; i++) {
-    if (BARE_OPTION_LETTER_LINE.test(lines[i].trim()) && lines[i].trim().toUpperCase() === "D") {
-      dCount++;
-      if (dCount === 2) {
-        const block = lines.slice(start, i + 1).join("\n").trim();
-        if (block) blocks.push(block);
-        start = i + 1;
-        dCount = 0;
+    const trimmed = lines[i].trim();
+    if (!BARE_OPTION_LETTER_LINE.test(trimmed)) continue;
+
+    if (trimmed === lastLabel) {
+      // Closing repeat of the option marker just opened.
+      if (trimmed === "D" && pendingCut === i) {
+        pendingCut = i + 1;
       }
+      continue;
     }
+
+    if (trimmed === OPTION_SEQUENCE[expectedIndex]) {
+      if (trimmed === "A" && sawFirstA) {
+        const cutAt = pendingCut ?? i;
+        const block = lines.slice(start, cutAt).join("\n").trim();
+        if (block) blocks.push(block);
+        start = cutAt;
+      }
+      if (trimmed === "A") sawFirstA = true;
+      if (trimmed === "D") {
+        pendingCut = i + 2; // the "D" line itself, plus its one content line
+      }
+      lastLabel = trimmed;
+      expectedIndex = (expectedIndex + 1) % OPTION_SEQUENCE.length;
+    }
+    // A bare letter that doesn't fit the expected sequence is just content
+    // (e.g. a stray "C" before "B" has appeared) - leave it alone.
   }
 
   const remainder = lines.slice(start).join("\n").trim();
@@ -58,7 +90,7 @@ export function splitQuestions(raw: string): string[] {
   const markerBlocks = splitByMarkers(text);
   if (markerBlocks.length > 1) return markerBlocks;
 
-  const autoBlocks = splitByRepeatedOptionLetters(text);
+  const autoBlocks = splitByOptionSequence(text);
   if (autoBlocks.length > 1) return autoBlocks;
 
   return markerBlocks;
